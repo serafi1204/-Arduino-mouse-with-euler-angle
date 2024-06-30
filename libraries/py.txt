@@ -1,8 +1,0 @@
-# Serial communication
-pip install pyserial
-
-# Control mouse
-pip install pyautogui
-
-# math
-pip install pyautogui
