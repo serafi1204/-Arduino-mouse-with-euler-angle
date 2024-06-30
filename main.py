@@ -2,8 +2,8 @@ import time
 import os
 import numpy as np
 # custom function
-import modules.arduSerial as arduSerial
-import modules.mouse as mouse
+import py_function.arduSerial as arduSerial
+import py_function.mouse as mouse
 
 # parameter
 DEBUG = 1
