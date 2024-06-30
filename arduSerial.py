@@ -9,7 +9,6 @@ class IMU:
         self.seri = None
         self.port = port
         self.baudrate = baudrate
-        self.dt = dt
         self.line = ""
         
         self.connect()
@@ -58,7 +57,6 @@ class IMU:
         cnt = 0
         while (success == 0):
             try :
-                self.seri.flushInput()
                 self.line = self.getLine()
                 roll, pitch, yaw = list(map(float, self.line.split(" ")))
                 
