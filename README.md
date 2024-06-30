@@ -6,5 +6,5 @@
     pip install pyautogui # Control mouse
     pip install pyautogui # math
 
-
-### [Referance](https://m.blog.naver.com/PostView.naver?blogId=seongilseo77&logNo=222225637028&navType=by)
+## Referance
+[Naver blog](https://m.blog.naver.com/PostView.naver?blogId=seongilseo77&logNo=222225637028&navType=by)
