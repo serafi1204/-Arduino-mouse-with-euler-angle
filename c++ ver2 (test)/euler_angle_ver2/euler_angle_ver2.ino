@@ -112,11 +112,16 @@ void setup()
   getQuaternion(0, 0, 0, &prev_orientation);
 }
 
-// Constantly read from the IMU and calculate orientation and position
-void loop()
-{  
-  if ((lastPrint + PRINT_SPEED) < millis())
-  {
+void prt() {
+  // Print the orientation and position to serial.
+  Serial.print(avg(my, orientationEuler_kal[0]), 2);
+  Serial.print(",");
+  Serial.print(avg(mp, orientationEuler_kal[1]), 2);
+  Serial.print(",");
+  Serial.println(avg(mr, orientationEuler_kal[2]), 2); 
+}
+
+void getSenseValues() {
     IMU.readGyroscope(t0, t1, t2);
     g_xyz[0] = (double)t0;
     g_xyz[1] = (double)t1;
@@ -129,9 +134,7 @@ void loop()
     m_xyz[0] = (double)t0;
     m_xyz[1] = (double)t1;
     m_xyz[2] = (double)t2;
-    // Scale gyroscope, accelerometer, and magnetometer values to the
-    // units needed by algorithms
-    
+
     // Gyroscope from degrees to radians
     g_xyz[0] = g_xyz[0] * 0.0174533;
     g_xyz[1] = g_xyz[1] * 0.0174533;
@@ -144,6 +147,14 @@ void loop()
     m_xyz[0] = m_xyz[0] * 100;
     m_xyz[1] = m_xyz[1] * 100;
     m_xyz[2] = m_xyz[2] * 100; 
+}
+
+// Constantly read from the IMU and calculate orientation and position
+void loop()
+{  
+  if ((lastPrint + PRINT_SPEED) < millis())
+  {
+    getSenseValues();
     
     // Call the kalman filter algorithm and trajectory calculation
     main_kal_tool(a_xyz, g_xyz, m_xyz, acc_tmp, ang_vel_tmp, prev_position_tmp, prev_velocity_tmp, prev_orientation, orient);    
@@ -151,15 +162,6 @@ void loop()
   }
 
   prt();
-}
-
-void prt() {
-  // Print the orientation and position to serial.
-  Serial.print(avg(my, orientationEuler_kal[0]), 2);
-  Serial.print(",");
-  Serial.print(avg(mp, orientationEuler_kal[1]), 2);
-  Serial.print(",");
-  Serial.println(avg(mr, orientationEuler_kal[2]), 2); 
 }
 
 // Obtain orientation and position using
