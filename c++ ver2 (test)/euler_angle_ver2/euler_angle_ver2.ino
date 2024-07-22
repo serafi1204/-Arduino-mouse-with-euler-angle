@@ -27,7 +27,7 @@ extern "C"{
 
 // Output Settings
 #define PRINT_CALCULATED
-#define PRINT_SPEED 1 // 20 ms between prints
+#define PRINT_SPEED 5 // 20 ms between prints
 static unsigned long lastPrint = 0; // Keep track of print time
 double g_xyz[3];
 double a_xyz[3];
@@ -45,7 +45,13 @@ int fs = 50;
 
 static double orientationEuler_kal[3];
 
+// printing
+double prev_angle[3] = {0,};
+int mx[3] = {0,};
+int mn[3] = {0,};
+
 //temp var for replacing library
+
 float t0, t1, t2;
 
 void readAndfloat2double(int (*pf)(float&, float&, float&), double *a, double *b, double *c) {
@@ -56,9 +62,8 @@ void readAndfloat2double(int (*pf)(float&, float&, float&), double *a, double *b
 }
 
 #define SIZE 10
-double mr[SIZE] = {0,};
-double mp[SIZE] = {0,};
-double my[SIZE] = {0,};
+double m[3][SIZE] = {{0,},};
+
 double avg(double *map, double v) {
   double acc = 0;
 
@@ -74,8 +79,13 @@ double avg(double *map, double v) {
 
 void setup() 
 {
+
+  for (int i=0; i<3; i++) {
+    mx[i] = 127;
+    mn[i] = 127;
+  }
   
-  Serial.begin(115200);
+  Serial.begin(9600);
   kal_tool_initialize();
   trajectory_tool_initialize();
 
@@ -112,16 +122,11 @@ void setup()
   getQuaternion(0, 0, 0, &prev_orientation);
 }
 
-void prt() {
-  // Print the orientation and position to serial.
-  Serial.print(avg(my, orientationEuler_kal[0]), 2);
-  Serial.print(",");
-  Serial.print(avg(mp, orientationEuler_kal[1]), 2);
-  Serial.print(",");
-  Serial.println(avg(mr, orientationEuler_kal[2]), 2); 
-}
-
-void getSenseValues() {
+// Constantly read from the IMU and calculate orientation and position
+void loop()
+{  
+  if ((lastPrint + PRINT_SPEED) < millis())
+  {
     IMU.readGyroscope(t0, t1, t2);
     g_xyz[0] = (double)t0;
     g_xyz[1] = (double)t1;
@@ -134,7 +139,9 @@ void getSenseValues() {
     m_xyz[0] = (double)t0;
     m_xyz[1] = (double)t1;
     m_xyz[2] = (double)t2;
-
+    // Scale gyroscope, accelerometer, and magnetometer values to the
+    // units needed by algorithms
+    
     // Gyroscope from degrees to radians
     g_xyz[0] = g_xyz[0] * 0.0174533;
     g_xyz[1] = g_xyz[1] * 0.0174533;
@@ -147,14 +154,6 @@ void getSenseValues() {
     m_xyz[0] = m_xyz[0] * 100;
     m_xyz[1] = m_xyz[1] * 100;
     m_xyz[2] = m_xyz[2] * 100; 
-}
-
-// Constantly read from the IMU and calculate orientation and position
-void loop()
-{  
-  if ((lastPrint + PRINT_SPEED) < millis())
-  {
-    getSenseValues();
     
     // Call the kalman filter algorithm and trajectory calculation
     main_kal_tool(a_xyz, g_xyz, m_xyz, acc_tmp, ang_vel_tmp, prev_position_tmp, prev_velocity_tmp, prev_orientation, orient);    
@@ -162,6 +161,69 @@ void loop()
   }
 
   prt();
+}
+
+void prt() {
+  double angle[3] = {0,};
+  char cangle[3];
+  int iangle[3];
+
+  for (int i=0; i<3; i++) {
+    double tmp = avg(m[i], orientationEuler_kal[i]);
+    angle[i] = tmp - prev_angle[i];
+    iangle[i] = int(angle[i]+128);
+    cangle[i] = char(iangle[i]);
+
+    if (cangle[i] == char(10)) cangle[i] == char(11);
+    if (cangle[i] == char(00)) cangle[i] == char(01);
+
+    prev_angle[i] = tmp;
+  }
+
+  Serial.print("\n");
+  Serial.print(cangle[0]); //Serial.print(char(0));
+  Serial.print(cangle[1]); //Serial.print(char(0));
+  Serial.print(cangle[2]); //Serial.print(char(0));
+  
+  /*
+  Serial.print("\nint : ");
+  for (int i=0; i<3; i++) {
+    Serial.print(iangle[i]-128);
+    Serial.print('\t');
+  }
+
+  Serial.print("\ndouble : ");
+  for (int i=0; i<3; i++) {
+    Serial.print(angle[i]);
+    Serial.print('\t');
+  }
+  */
+  /*
+  for (int i=0; i<3; i++) {
+    Serial.print(int(angle[i]+128));
+    Serial.print(",");
+  }
+  Serial.print("\n");
+
+  for (int i=0; i<3; i++) {
+    Serial.print(angle[i]);
+    Serial.print(",");
+  }
+  Serial.print("\n");
+
+  Serial.print("max: ");
+  for (int i=0; i<3; i++) {
+    Serial.print(mx[i]);
+    Serial.print(",");
+  }
+  Serial.print("\n");
+  Serial.print("min: ");
+  for (int i=0; i<3; i++) {
+    Serial.print(mn[i]);
+    Serial.print(",");
+  }
+  Serial.print("\n");
+  */
 }
 
 // Obtain orientation and position using
