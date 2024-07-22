@@ -8,14 +8,13 @@
 
 using namespace std;
 
-#define DEBUG 
+//#define DEBUG 
 
 time_t s, e;
-double period = 0;
 
 // Arduino
-#define BAUDRATE 115200
 #define PORT "COM8"
+#define PERIOD 5
 
 Serial* SP = new Serial("COM8");
 double YPR[3] = {0,};
@@ -23,8 +22,8 @@ double preYPR[3] = {0,};
 double dYPR[3] = {0,};
 
 // Mouse
-#define TRESHOLD 1
-#define GAIN 10
+#define TRESHOLD 2
+#define GAIN 1
 
 double tp[2] = {0,};
 double dp[2] = {0,};
@@ -33,59 +32,62 @@ POINT p;
 
 
 void getYPR(double *ypr) {
-    int cnt = 0;
     char c;
-    string line = "";
+    char line[3];
 
-    while (cnt != 2) {
+    while (c != '\n') {
         SP->ReadData(&c, 1);
-
-        if (cnt == 1) line.push_back(c);
-        if (c == '\n') cnt++;
     }
 
-    stringstream ss(line);
-    string word;
-    int i = 0;
-    while (getline(ss, word, ',')){
-        ypr[i] = stod(word);
-        i++;
+    SP->ReadData(line, 3);
+
+    for (int i=0; i<3; i++) {
+        ypr[i] = (double)(0x00FF & line[i])-128; 
     }
 }
 
 int main() {
-    s = clock(); 
+    while (true) {
+        char c;
+        SP->ReadData(&c, 1);
+
+        if (c == '\n') {
+            cout << "\n";
+            continue;
+        }
+        cout << (double)(0x00FF & c)-128 << 0; 
+
+        Sleep(0.2);
+    }
+
     while (true) {
         while (SP->IsConnected()) {
+            Sleep(1);
 
             // get data
-            getYPR(YPR);
-            // make x, y
-            for(int i = 0; i<2; i++) {
-                dYPR[i] = YPR[i] - preYPR[i];
-                preYPR[i] = YPR[i];
-            }
+            getYPR(dYPR);
 
             // make x, y
             tp[0] = dYPR[0];
             tp[1] = dYPR[1];
             for(int i = 0; i<2; i++) {
-                dp[i] = tp[i]*GAIN*period;
+                if (-TRESHOLD < tp[i] && tp[i] < TRESHOLD) {
+                    dp[i] = 0;
+                    continue;
+                }
+
+                dp[i] = tp[i]*GAIN*PERIOD;
             }
+            
 
             // control mouse
             if(GetCursorPos(&p)) {
                 SetCursorPos(p.x+dp[0], p.y+dp[1]);
             }
-
-            e = clock();
-            period = (double)(e-s);
-            s = e;
-            
-            #ifndef DEGUG
+        
+            #ifdef DEBUG
             cout << "tx: " << tp[0] << "/ty: " << tp[1] << "\n";
             cout << "dx: " << dp[0] << "/dy: " << dp[1] << "\n";
-            cout << "period: " << period << " ms\n";
             #endif
         }
     }
