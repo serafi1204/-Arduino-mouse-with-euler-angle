@@ -31,15 +31,16 @@ public:
 	bool enable = false;
 	bool readline(int* line);
 	bool isConnected();
+	bool tryConnect();
 };
 
 /*
-Serial port¿¡¼­ char 1°³¸¦ ÀÐ´Â´Ù.
-'\n'°¡ ÀÔ·Â‰çÀ» ¶§ ´©ÀûµÈ °ªÀÌ lineLen°ú °°´Ù¸é Á¤º¸¸¦ lineÀ¸·Î ÀÎ½ÄÇÑ´Ù.
-LineÀÌ ÀÎ½ÄµÉ °æ¿ì getData ÇÔ¼ö°¡ ½ÇÇàµÈ´Ù.
+Serial portì—ì„œ char 1ê°œë¥¼ ì½ëŠ”ë‹¤.
+'\n'ê°€ ìž…ë ¥ë¬ì„ ë•Œ ëˆ„ì ëœ ê°’ì´ lineLenê³¼ ê°™ë‹¤ë©´ ì •ë³´ë¥¼ lineìœ¼ë¡œ ì¸ì‹í•œë‹¤.
+Lineì´ ì¸ì‹ë  ê²½ìš° getData í•¨ìˆ˜ê°€ ì‹¤í–‰ëœë‹¤.
 
-return: {line ÀÎ½Ä ¿©ºÎ}
-int* line: lineÀÌ ÀÎ½ÄµÉ °æ¿ì data ¹ÝÈ¯.
+return: {line ì¸ì‹ ì—¬ë¶€}
+int* line: lineì´ ì¸ì‹ë  ê²½ìš° data ë°˜í™˜.
 */
 bool READLINE::readline(int* line) {
 	char c;
@@ -71,5 +72,11 @@ bool READLINE::readline(int* line) {
 bool READLINE::isConnected() {
 	return this->SP->IsConnected();
 }
+
+bool READLINE::tryConnect() {
+	this->SP = new Serial(COM.c_str(), BAUDRATE);
+
+	return this->SP->IsConnected();
+};
 
 #endif READLINE_H
