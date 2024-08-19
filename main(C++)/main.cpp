@@ -1,6 +1,5 @@
 /* Ver. 3.0.0
-* ÇöÀç ¹®Á¦Á¡
-* 1. dx, dy ³ëÀÌÁî ¹®Á¦
+* í˜„ì¬ ë¬¸ì œ
 */
 
 #include <stdio.h>
@@ -12,14 +11,21 @@
 #include <time.h>
 #include "SerialClass.h"
 #include "readline.h"
+#include "filter.h"
 using namespace std;
 
+/********************************************** Freq */
+#define SPEED 5
+
+clock_t s = clock();
+clock_t e = clock();
+
 /********************************************** For debugging
-* "#define DEBUG"¸¦ ÁÖ¼®Ã³¸®ÇÏ¸é µğ¹ö±ë ³»¿ëÀÌ Ãâ·ÂµÇÁö ¾Ê½À´Ï´Ù.
-* Æ¯Á¤ ±â´É ENABLEÀ» ÁÖ¼®Ã³¸®ÇÏ¸é ÇØ´ç ±â´ÉÀº µ¿ÀÛÇÏÁö ¾Ê½À´Ï´Ù.
+* "#define DEBUG"ë¥¼ ì£¼ì„ì²˜ë¦¬í•˜ë©´ ë””ë²„ê¹… ë‚´ìš©ì´ ì¶œë ¥ë˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
+* íŠ¹ì • ê¸°ëŠ¥ ENABLEì„ ì£¼ì„ì²˜ë¦¬í•˜ë©´ í•´ë‹¹ ê¸°ëŠ¥ì€ ë™ì‘í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
 */
 #define DEBUG
-//#define ENABLE_POSITION 
+#define ENABLE_POSITION 
 #define ENABLE_CLICK
 #define ENABLE_SCROLL 
 #ifdef DEBUG
@@ -32,25 +38,25 @@ void prt(bool cond, string name, int v) {
 #endif
 
 /********************************************** Main Arduino
-* IMU Æ÷ÇÔ ¸ŞÀÎ µğ¹ÙÀÌ½º
+* IMU í¬í•¨ ë©”ì¸ ë””ë°”ì´ìŠ¤
 * line = {dx, dy, click}
 * click = {left click, right click, mouse disable}
 */
 #define LEN_MAIN 3
 
-void filter_main(int* line, string stack); // µ¥ÀÌÅÍ ÈÄÃ³¸® + ÇÊÅÍ
+void filter_main(int* line, string stack); // ë°ì´í„° í›„ì²˜ë¦¬ + í•„í„°
 READLINE ardu_main("COM8", 9600, LEN_MAIN, filter_main);
 int line_main[LEN_MAIN];
 int enable = false;
 
 /********************************************** Sub Arduino
-* Å¬¸¯ Àü¿ë º¸Á¶ µğ¹ÙÀÌ½º
+* í´ë¦­ ì „ìš© ë³´ì¡° ë””ë°”ì´ìŠ¤
 * line = {click}
 * click = {left click, right click, enable, scroll up, scroll down}
 */
 #define LEN_SUB 1
 
-void filter_sub(int* line, string stack); // µ¥ÀÌÅÍ ÈÄÃ³¸® + ÇÊÅÍ
+void filter_sub(int* line, string stack); // ë°ì´í„° í›„ì²˜ë¦¬ + í•„í„°
 READLINE ardu_sub("COM4", 9600, LEN_SUB, filter_sub);
 int line_sub[LEN_SUB];
 
@@ -68,12 +74,14 @@ int scroll = 0; // -1: down, 0: stop, 1: up
 /********************************************** Main */
 int main() {
 	while (true) {
+		if (!ardu_main.isConnected()) ardu_main.tryConnect();
+
 		// Debugging
 		#ifdef DEBUG
 			bool main_body = ardu_main.isConnected();
 			bool sub_body = ardu_sub.isConnected();
 
-			COORD pos = {0, 0};
+			COORD pos = {0, 3};
 			SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), pos);
 			
 			cout << "[Mouse]\n";
@@ -94,25 +102,30 @@ int main() {
 		#endif
 
 		// Serial communication
+		scroll = 0;
 		if (ardu_sub.readline(line_sub)) {
 			click_sub = line_sub[0] & 0b11;
-		};
+		}
 		if (ardu_main.readline(line_main)) {
 			enable = ardu_main.enable;
 			dp.x = line_main[0];
 			dp.y = line_main[1];
 
-			line_main[2] >>= 1;
+			line_main[2] >>= 0;
 			click_main = line_main[2] & 0b11;
 			enable &= ~((line_main[2] >> 2) & 0b1);
 			scroll = (line_main[2] & 0b001000) ? 1 : 0;
-			scroll += (line_main[2] & 0b100000) ? -1 : 0;
-		};
+			scroll += (line_main[2] & 0b10000) ? -1 : 0;
+		}
 
 		click_his[0] = click;
 		click = click_sub | click_main;
 
 		// Contoll mouse
+		e = clock();
+		if ((double)(e - s) < SPEED) continue;
+		s = e;
+
 		if (!enable) { continue; }
 		if (!GetCursorPos(&p)) { continue; }
 
@@ -155,15 +168,24 @@ int main() {
 }
 
 /********************************************** Filter 
-* ÇÊÅÍÀÇ ÀÎÀÚ´Â ¼öÁ¤µÇ¾î¼± ¾ÈµÈ´Ù.
-* line¿¡ °á°ú¸¦ ÀúÀåÇÑ´Ù.
-* stack¿¡ Serial¸¦ ÅëÇØ ¹ŞÀº char°¡ µé¾îÀÖ´Ù.
+* í•„í„°ì˜ ì¸ìëŠ” ìˆ˜ì •ë˜ì–´ì„  ì•ˆëœë‹¤.
+* lineì— ê²°ê³¼ë¥¼ ì €ì¥í•œë‹¤.
+* stackì— Serialë¥¼ í†µí•´ ë°›ì€ charê°€ ë“¤ì–´ìˆë‹¤.
 */
 
+FILTER aTrimmedMean(9, 0);
 
 void filter_main(int* line, string stack) { 
 	// Char to integer
-	for (int i = 0; i < LEN_MAIN; i++) line[i] = (int)(signed char)stack[i]; 
+	for (int i = 0; i < LEN_MAIN; i++) {
+		line[i] = (int)(signed char)stack[i];
+	}
+
+	for (int i = 0; i < 2; i++) {
+		line[i] = -line[i];
+		line[i] /= 2;
+		//line[i] = aTrimmedMean.filtering(line[i]);
+	}
 
 	// if you add filter, add here.
 }
