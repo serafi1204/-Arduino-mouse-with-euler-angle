@@ -178,6 +178,10 @@ bool Serial::WriteData(const char* buffer, unsigned int nbChar)
 bool Serial::IsConnected()
 {
     //Simply return the connection status
-    return this->connected;
+    if (ClearCommError(hSerial, &errors, &status)) {
+        return (errors == 0);
+    }
+
+    return 0;
 }
 #endif // SERIALCLASS_H_INCLUDED
